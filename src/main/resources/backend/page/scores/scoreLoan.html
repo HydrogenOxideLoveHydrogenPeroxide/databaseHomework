@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Loan Audit</title>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="../../plugins/element-ui/index.css" />
+    <link rel="stylesheet" href="../../styles/common.css" />
+    <link rel="stylesheet" href="../../styles/page.css" />
+</head>
+<body>
+<div class="dashboard-container" id="score-loan-app">
+    <div class="container">
+        <div class="tableBar" style="display: inline-block"></div>
+        <el-table :data="tableData" stripe class="tableBox">
+            <el-table-column prop="id" label="项目ID"></el-table-column>
+            <el-table-column prop="userId" label="用户ID"></el-table-column>
+            <el-table-column prop="score" label="借贷积分"></el-table-column>
+            <el-table-column prop="loanReason" label="借贷理由"></el-table-column>
+            <el-table-column prop="status" label="状态">
+                <template slot-scope="scope">
+                    <span>{{ getStatus(scope.row.status) }}</span>
+                </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="创建时间">
+                <template slot-scope="scope">
+                    {{ scope.row.createTime }}
+                </template>
+            </el-table-column>
+            <el-table-column label="操作" width="160" align="center">
+                <template slot-scope="scope">
+                    <el-button type="text" size="small" class="blueBut" @click="updateStatus(scope.row.id, 'pass')">
+                        通过
+                    </el-button>
+                    <el-button type="text" size="small" class="delBut non" @click="updateStatus(scope.row.id, 'reject')">
+                        未通过
+                    </el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+        <el-pagination
+                class="pageList"
+                :page-sizes="[10, 20, 30, 40]"
+                :page-size="pageSize"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="counts"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+        ></el-pagination>
+    </div>
+</div>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="../../plugins/vue/vue.js"></script>
+<!-- 引入组件库 -->
+<script src="../../plugins/element-ui/index.js"></script>
+<!-- 引入axios -->
+<script src="../../plugins/axios/axios.min.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../api/scoreLoan.js"></script>
+<script>
+    new Vue({
+        el: '#score-loan-app',
+        data() {
+            return {
+                counts: 0,
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+            }
+        },
+        created() {
+            this.init()
+        },
+        methods: {
+            async init() {
+                await this.getScoreLoanPage()
+            },
+            getStatus(status) {
+                switch (status) {
+                    case 0:
+                        return '待审核';
+                    case 1:
+                        return '通过';
+                    case 2:
+                        return '失败';
+                    case 3:
+                        return '取消';
+                    default:
+                        return '未知';
+                }
+            },
+            async updateStatus(id, action) {
+                const confirmMessage = action === 'pass' ? '此操作将通过贷款申请, 是否继续?' : '此操作将拒绝贷款申请, 是否继续?';
+                const successMessage = action === 'pass' ? '通过成功！' : '拒绝成功！';
+
+                this.$confirm(confirmMessage, '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(async () => {
+                    try {
+                        const res = action === 'pass' ? await passScoreLoan(id) : await rejectScoreLoan(id);
+                        if (res.code === 1) {
+                            this.$message.success(successMessage);
+                            this.init();
+                        } else {
+                            this.$message.error(res.msg || '操作失败');
+                        }
+                    } catch (err) {
+                        this.$message.error('请求出错了：' + err);
+                    }
+                }).catch(() => {
+                    this.$message.info('操作取消');
+                });
+            },
+            handleSizeChange(val) {
+                this.pageSize = val;
+                this.init();
+            },
+            handleCurrentChange(val) {
+                this.page = val;
+                this.init();
+            },
+            async getScoreLoanPage(){
+                try {
+                    const res = await getScoreLoanPageApi ({page:this.page,pageSize:this.pageSize});
+                    if (res.code === 1) {
+                        this.tableData = res.data.records;
+                        this.counts = res.data.total;
+                    } else {
+                        this.$message.error(res.msg || '操作失败');
+                    }
+                } catch (err) {
+                    this.$message.error('请求出错了：' + err);
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
+

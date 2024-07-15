@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0,user-scalable=no,minimal-ui">
+    <title>我的商品</title>
+    <link rel="icon" href="./../images/favico.ico">
+    <!--不同屏幕尺寸根字体设置-->
+    <script src="./../js/base.js"></script>
+    <!--element-ui的样式-->
+    <link rel="stylesheet" href="../../backend/plugins/element-ui/index.css" />
+    <!-- 引入样式  -->
+    <link rel="stylesheet" href="../styles/index.css" />
+    <!--引入vant样式-->
+    <link rel="stylesheet" href="../styles/vant.min.css"/>
+    <!--本页面内容的样式-->
+    <link rel="stylesheet" href="./../styles/order.css" />
+    <link rel="stylesheet" href="./../styles/ball.css">
+    <link rel="stylesheet" href="./../styles/common.css" />
+    <link rel="stylesheet" href="./../styles/page.css" />
+</head>
+<body>
+<div id="order" class="app">
+    <div class="divHead">
+        <div class="divTitle">
+            <i class="el-icon-arrow-left" @click="goBack"></i>我的商品
+        </div>
+    </div>
+
+    <div class="divBody" v-if="productList.length > 0">
+        <van-list v-model="loading" :finished="finished" finished-text="没有更多了" @load="getProductList">
+            <van-cell v-for="(product,index) in productList" :key="product.createTime" class="item">
+                <div class="productDetails">
+                    <div class="timeStatus">
+                        <span>商品名称:  {{ product.name }}</span>
+                        <span>{{getStatus( product.status )}}</span>
+                    </div>
+                    <div class="productDescription">
+                        <span>商品价格: {{ product.price }}</span>
+                    </div>
+                    <div class="productDescription">
+                        <span>商品剩余库存: {{ product.stock }}</span>
+                    </div>
+                    <div class="productDescription">
+                        <span>商品描述: {{ product.description }}</span>
+                    </div>
+                    <div class="productDescription">
+                        <span>创建时间: {{ product.createTime }}</span>
+                    </div>
+                    <div class="productDescription">
+                        <span>最近一次变更时间: {{ product.updateTime }}</span>
+                    </div>
+                    <el-table-column label="操作" width="20" align="center">
+                        <el-button
+                                type="text"
+                                size="small"
+                                class="blueBug"
+                                @click="stopSellHandle(product)"
+                                v-if="product.status===1"
+                        >停售</el-button>
+                        <el-button
+                                type="text"
+                                size="small"
+                                class="blueBug"
+                                @click="startSellHandle(product)"
+                                v-if="product.status===0"
+                        >启售</el-button>
+                        <el-button
+                                @click="deleteHandle(product)"
+                                class="blueBug"
+                                size="small"
+                                type="text"
+                                v-if="product.status===0 || product.status===2 || product.status===3"
+                        >删除</el-button>
+                    </el-table-column>
+                </div>
+            </van-cell>
+        </van-list>
+    </div>
+    <div class="divNoData" v-else>
+        <div class="divContainer">
+            <img src="./../images/no_order.png"/>
+            <div>您暂无上架的商品</div>
+        </div>
+    </div>
+
+    <img id="neko" src="./../images/sellProductBall.png">
+
+    <div class= "container" width="80%"><el-dialog
+            :title="ruleForm.title"
+            :visible.sync="ruleForm.dialogVisible"
+            width="60%"
+
+            :before-close="handleClose"
+    >
+        <el-form
+                class="demo-form-inline"
+                label-width="100px"
+                ref="ruleForm"
+                :model="ruleForm"
+                :rules="rules"
+        >
+            <el-form-item label="商品名称:" prop="name">
+                <el-input
+                        v-model="ruleForm.name "
+                        placeholder="请输入商品的名称"
+                        maxlength="20"
+                />
+            </el-form-item>
+            <el-form-item label="产品分类:" prop="categoryId">
+                <el-select v-model="ruleForm.categoryId" placeholder="请选择产品分类">
+                    <el-option v-for="(item,index) in categoryList " :key="index" :label="item.name" :value="item.id" />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="商品价格:" prop="price">
+                <el-input v-model="ruleForm.price"
+                          placeholder="请输入商品的单价(整数)"
+                          maxlength="10"
+                          type="number"
+                          min="0"
+                          step="1"
+                />
+            </el-form-item>
+            <el-form-item label="商品库存:" prop="stock">
+                <el-input v-model="ruleForm.stock"
+                          placeholder="请输入商品的库存(整数)"
+                          maxlength="10"
+                          type="number"
+                          min="0"
+                          step="1"
+                />
+            </el-form-item>
+            <el-form-item label="产品图片:" prop="image"
+                    class="uploadImg"
+            >
+                <el-upload
+                        class="avatar-uploader"
+                        action="/common/upload"
+                        :show-file-list="false"
+                        :on-success="handleAvatarSuccess"
+                        :on-change="onChange"
+                        ref="upload"
+                >
+                    <img
+                            v-if="imageUrl"
+                            :src="imageUrl"
+                            class="avatar"
+                    ></img>
+                    <i
+                            v-else
+                            class="el-icon-plus avatar-uploader-icon"
+                    ></i>
+                </el-upload>
+            </el-form-item>
+            <el-form-item label="产品描述:" >
+                <el-input
+                    v-model="ruleForm.description"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="产品描述，最长200字"
+                    maxlength="200"/>
+            </el-form-item>
+        </el-form>
+        <span
+                slot="footer"
+                class="dialog-footer"
+        >
+        <el-button
+                size="medium"
+                @click="handleClose"
+        >取 消</el-button>
+        <el-button
+                type="primary"
+                size="medium"
+                @click="submitForm('ruleForm')"
+        >确 定</el-button>
+        <el-button
+                v-if="action != 'edit'"
+                type="primary"
+                size="medium"
+                class="continue"
+                @click="submitForm('ruleForm','goAnd')"
+        > 保存并继续添加 </el-button>
+      </span>
+    </el-dialog></div>
+
+</div>
+</body>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="../../backend/plugins/vue/vue.js"></script>
+<!-- 引入组件库 -->
+<script src="../../backend/plugins/element-ui/index.js"></script>
+<!-- 引入vant组件 -->
+<script src="./../js/vant.min.js"></script>
+<!-- 引入axios -->
+<script src="../../backend/plugins/axios/axios.min.js"></script>
+<script src="../../backend/js/validate.js"></script>
+<script src="./../js/request.js"></script>
+<script src="../../backend/js/index.js"></script>
+<script src="./../api/product.js"></script>
+<script>
+    new Vue({
+        el: '#order',
+        data() {
+            return {
+                paging: {
+                    page: 1,
+                    pageSize: 7
+                },
+                productList: [],
+                categoryList:[],
+                action: '',
+                counts: '',
+                changed: false,
+                loading: false,
+                finished: false,
+                imageUrl: '',
+                ruleForm  : {
+                    'title': '商品上架申请',
+                    'dialogVisible': false,
+                    'name': '',
+                    'id': '',
+                    'price': '',
+                    'image': '',
+                    'stock' :0,
+                    'description': '',
+                    'dishFlavors': [],
+                    'status': 2,
+                    categoryId: ''
+                },
+            }
+        },
+        computed: {
+            rules () {
+                return {
+                    'name': [
+                        {'required': true, 'message': '请填写产品名称', 'trigger': 'blur'}
+                    ],
+                    'categoryId': [
+                        {'required': true, 'message': '请选择产品分类', 'trigger': 'blur'}
+                    ],
+                    'price': [
+                        {
+                            'required': true,
+                            // 'message': '请填写产品价格',
+                            validator: (rules, value, callback) => {
+                                if (!value) {
+                                    callback(new Error('请填写产品价格'))
+                                } else {
+                                    if (/^-?\d+$/.test(value)) {
+                                        callback();
+                                    } else {
+                                        callback(new Error('产品价格格式只能为数字,且输入整数'))
+                                    }
+                                }
+                            },
+                            'trigger': 'blur'
+                        }
+                    ],
+                    'stock': [
+                        {'required': true, 'message': '请填写产品库存', 'trigger': 'blur'}
+                    ],
+                    'image':[{'required': true, 'message': '请载入产品图片', 'trigger': 'blur'}]
+                }
+            }
+        },
+        created: function () {
+            var vm=this
+            window.onload = function () {
+                var MoveDom = document.getElementById('neko')
+                //初始位置配置
+                MoveDom.style.transform = 'translateX(50%)'
+                MoveDom.style.left = document.body.scrollWidth - parseFloat(getComputedStyle(MoveDom, null)['width'].split('px')[0]) + 'px'
+                MoveDom.style.top = document.body.scrollWidth / 2 + 'px'
+                // 防抖
+                function debounce(fn, wait) {
+                    var timer = null;
+                    return function () {
+                        if (timer !== null) {
+                            clearTimeout(timer);
+                        }
+                        timer = setTimeout(fn, wait);
+                    }
+                }
+
+                /**
+                 * [domMove 动态拖拽]
+                 * @method domMove
+                 * @param  {[Element]} MoveDOM [想要动态拖拽Element]
+                 */
+                function domMove(MoveDOM) {
+                    var disX, disY, moveX, moveY, L, T, starX, starY, starXEnd, starYEnd;
+                    var canMove = false;
+                    var canTouch = true;
+
+                    function getDomDistance() {
+                        return {
+                            MoveDomLeft: parseFloat(MoveDOM.style.left.split('px')[0]),
+                            MoveDomRight: document.body.scrollWidth - parseFloat(MoveDOM.style.left.split('px')[0]) - parseFloat(getComputedStyle(MoveDOM, null)['width'].split('px')[0])
+                        }
+
+                    }
+
+                    function rate(MoveDOM, a) {
+                        //  console.log(a);
+                        canTouch = true
+                        if (a === '') {
+                            MoveDOM.style.transition = ''
+                            MoveDOM.style.transform = ''
+                        } else {
+                            MoveDOM.style.transition = '.5s';
+                            if (a == 90) {
+                                debounce(function (a) {
+                                    MoveDOM.style.left = '0px'
+                                    document.getElementById('neko').style.transform = 'translateX(-50%)'// rotate(90deg)
+                                }, 1000)()
+
+                            } else if (a == -90) {
+                                debounce(function (a) {
+                                    MoveDOM.style.left = document.body.scrollWidth - parseFloat(getComputedStyle(MoveDOM, null)['width'].split('px')[0]) + 'px'
+                                    document.getElementById('neko').style.transform = 'translateX(50%)'// rotate(-90deg)
+                                }, 1000)()
+                            }
+                        }
+
+                    }
+
+                    function down(e) {
+                        canMove = true;
+                        //取消动画
+                        rate(MoveDOM, '')
+                        e.preventDefault();//阻止触摸时页面的滚动，缩放
+                        if (e.touches) {
+                            disX = e.touches[0].clientX - MoveDOM.offsetLeft;
+                            disY = e.touches[0].clientY - MoveDOM.offsetTop;
+                            starX = e.touches[0].clientX;
+                            starY = e.touches[0].clientY;
+                            console.log(disX + "+" + disY)
+                            console.log(MoveDOM.offsetLeft + "+" + MoveDOM.offsetTop)
+                        } else {
+                            disX = e.clientX - MoveDOM.offsetLeft;
+                            disY = e.clientY - MoveDOM.offsetTop;
+                            starX = e.clientX;
+                            starY = e.clientY;
+                            console.log(disX + "+" + disY)
+                        }
+
+                    }
+
+                    function move(e) {
+                        if (canMove === true) {
+                            if (e.touches) {
+                                L = e.touches[0].clientX - disX;
+                                T = e.touches[0].clientY - disY;
+                                starXEnd = e.touches[0].clientX - starX;
+                                starYEnd = e.touches[0].clientY - starY;
+                            } else {
+                                L = e.clientX - disX;
+                                T = e.clientY - disY;
+                                starXEnd = e.clientX - starX;
+                                starYEnd = e.clientY - starY;
+                            }
+                            //console.log(L);
+                            if (L < 0) {
+                                L = 0;
+                            } else if (L > document.documentElement.clientWidth - MoveDOM.offsetWidth) {
+                                L = document.documentElement.clientWidth - MoveDOM.offsetWidth;
+                            }
+
+                            if (T < 0) {
+                                T = 0;
+                            } else if (T > document.documentElement.clientHeight - MoveDOM.offsetHeight) {
+                                T = document.documentElement.clientHeight - MoveDOM.offsetHeight;
+                            }
+                            moveX = L + 'px';
+                            moveY = T + 'px';
+                            console.log(moveX);
+                            MoveDOM.style.left = moveX;
+                            MoveDOM.style.top = moveY;
+                        }
+                    }
+
+                    function end() {
+                        let current = (new Date()).valueOf();
+                        if (current - timestamps < 150 && canTouch) {  //200ms内为短按
+                            vm.ruleForm.dialogVisible=true
+                            rate(MoveDOM, 0, 'right')
+                        } else {  //长按
+                            canMove = false
+                            canTouch = false
+                            console.log(canMove)
+                            if (getDomDistance().MoveDomLeft <= 70) {
+                                rate(MoveDOM, 90)
+                            } else if (getDomDistance().MoveDomRight <= 70) {
+                                rate(MoveDOM, -90)
+                            }
+                        }
+
+                    }
+
+                    function start() {
+                        window.timestamps = (new Date()).valueOf();
+                    }
+
+                    MoveDOM.addEventListener('touchstart', function (e) {
+                        //取消动画
+                        rate(MoveDOM, '')
+                        //e.preventDefault();
+                        down(e);
+                        //开始计算点击时间
+                        start()
+                    });
+                    MoveDOM.addEventListener('mousedown', function (e) {
+                        //取消动画
+                        rate(MoveDOM, '')
+                        //e.preventDefault();
+                        down(e);
+                        //开始计算点击时间
+                        start()
+                    });
+                    window.addEventListener('mouseleave', function (e) {
+                        canMove = false//关闭拖拽状态
+                        if (getDomDistance().MoveDomLeft <= 40) {
+                            rate(MoveDOM, 90)
+                        } else if (getDomDistance().MoveDomRight <= 40) {
+                            rate(MoveDOM, -90)
+                        }
+                    })
+                    MoveDOM.addEventListener('mouseleave', function (e) {
+                        canMove = false//关闭拖拽状态
+                        if (getDomDistance().MoveDomLeft <= 40) {
+                            rate(MoveDOM, 90)
+                        } else if (getDomDistance().MoveDomRight <= 40) {
+                            rate(MoveDOM, -90)
+                        }
+
+                    })
+                    MoveDOM.addEventListener('touchmove', function (e) {
+                        move(e);
+                    });
+                    MoveDOM.addEventListener('mousemove', function (e) {
+                        move(e);
+                    });
+                    MoveDOM.addEventListener("mouseup", function (e) {
+                        end()
+                    }, false),
+                        MoveDOM.addEventListener("touchend", function (e) {
+                            end()
+                        }, false)
+                    MoveDOM.addEventListener('transitionend', function () {
+                        canTouch = true
+                    }, false)
+                }
+
+                //执行函数
+                domMove(MoveDom)
+            }
+
+            this.getProductList()
+            this.getCategoryList()
+            console.log(this.categoryList)
+            // 参数临时数据
+            this.getFlavorListHand()
+            this.id = requestUrlParam('id')
+            this.actionType = 'add'
+            if (this.id) {
+                this.init()
+            }
+        },
+        mounted() {
+        },
+        methods: {
+            async init () {
+                queryProductById(this.id).then(res => {
+                    console.log(res)
+                    if (String(res.code) === '1') {
+                        this.ruleForm = { ...res.data }
+                        this.ruleForm.price = String(res.data.price)
+                        this.ruleForm.stock= res.data.stock
+                        this.ruleForm.status = res.data.status == '1'
+                        console.log('this.dishFlavors',this.dishFlavors)
+                        // this.ruleForm.id = res.data.data.categoryId
+                        // this.imageUrl = res.data.data.image
+                        this.imageUrl = `/common/download?name=${res.data.image}`
+                    } else {
+                        this.$message.error(res.msg || '操作失败')
+                    }
+                })
+            },
+
+
+            // 获取参数信息列表
+            getFlavorListHand () {
+                this.dishFlavorsData = [
+                    {'name':'售后','value':['无售后','普通售后','特别售后']},
+                ]
+            },
+
+            checkOption(val, ind, index){
+                this.selectHandle(val.name, index, ind)
+                this.dishFlavors[index].name = val.name
+            },
+
+            //已经完成的
+            goBack(){
+                const url = document.referrer
+                //表示是从订单页面跳转过来的
+                if(url.includes('success')){
+                    window.requestAnimationFrame(()=>{
+                        window.location.href= '/front/index.html'
+                    })
+                }else{
+                    history.go(-1)
+                }
+            },
+
+            getStatus(status) {
+                let str = ''
+                switch (status) {
+                    case 0:
+                        str = '停售'
+                        break;
+                    case 1:
+                        str = '启售'
+                        break;
+                    case 2:
+                        str = '待审核'
+                        break;
+                    case 3:
+                        str = '拒绝'
+                        break
+                }
+                return str
+            },
+            // 关闭弹窗
+            handleClose() {
+                this.ruleForm.dialogVisible = false
+                if (this.changed) {
+                    location.reload()
+                }
+            },
+
+            loanWindowsView() {
+                this.ruleForm.dialogVisible = true
+            },
+
+            async getProductList() {
+                if (this.finished) {
+                    this.loading = false;
+                    return
+                }
+                const res = await getProductPageApi(this.paging)
+                if (res.code === 1) {
+                    this.productList.push(...res.data.records)
+
+                    this.loading = false;
+                    if (this.paging.page >= res.data.pages) {
+                        this.finished = true;
+                    }
+                    this.paging.page = this.paging.page + 1
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+
+            // 获取产品分类
+            getCategoryList(){
+                getCategoryListApi({ 'type': 1 }).then(res => {
+                    if (res.code === 1) {
+                        this.categoryList = res.data
+                    } else {
+                        this.$message.error(res.msg || '操作失败')
+                    }
+                })
+            },
+
+            deleteHandle(product){
+                deleteProduct(product.id).then(res => {
+                    if (res.code === 1) {
+                        this.$message.success('删除成功！')
+                        this.changed = true
+                        location.reload()
+                    } else {
+                        this.$message.error(res.msg || '操作失败')
+                    }
+                }).cache(err => {
+                    this.$message.error('请求出错了：' + err)
+                })
+            },
+
+            stopSellHandle(product){
+                let params = {}
+                params.id = product.id
+                params.status = 0
+                this.State = params
+                prodcutStatusByStatus(this.State).then(res => {
+                    if (res.code === 1) {
+                        this.$message.success('产品状态已经更改成功！')
+                        product.status=0
+                    } else {
+                        this.$message.error(res.msg || '操作失败')
+                    }
+                }).catch(err => {
+                    this.$message.error('请求出错了：' + err)
+                })
+            },
+
+            startSellHandle(product){
+                let params = {}
+                params.id = product.id
+                params.status = 1
+                this.State = params
+                prodcutStatusByStatus(this.State).then(res => {
+                    if (res.code === 1) {
+                        product.status=1
+                        this.$message.success('产品状态已经更改成功！')
+                    } else {
+
+                        this.$message.error(res.msg || '操作失败')
+                    }
+                }).catch(err => {
+                    this.$message.error('请求出错了：' + err)
+                })
+            },
+
+            onChange (file) {
+                if(file){
+                    const suffix = file.name.split('.')[1]
+                    const size = file.size / 1024 / 1024 < 2
+                    if(['png','jpeg','jpg'].indexOf(suffix) < 0){
+                        this.$message.error('上传图片只支持 png、jpeg、jpg 格式！')
+                        this.$refs.upload.clearFiles()
+                        return false
+                    }
+                    if(!size){
+                        this.$message.error('上传文件大小不能超过 2MB!')
+                        return false
+                    }
+                    return file
+                }
+            },
+
+            handleAvatarSuccess (response, file, fileList) {
+                // 拼接down接口预览
+                if(response.code === 0 && response.msg === '未登录'){
+                    window.top.location.href = '/front/page/login.html'
+                }else{
+                    this.imageUrl = `/common/download?name=${response.data}`
+                    this.ruleForm.image = response.data
+                }
+            },
+
+            // 按钮 - 添加参数
+            addParam () {
+                this.dishFlavors.push({'name': '', 'value': [], showOption: false}) // JSON.parse(JSON.stringify(this.dishFlavorsData))
+            },
+
+            // 按钮 - 删除参数标签
+            delFlavorLabel (index, ind) {
+                this.dishFlavors[index].value.splice(ind, 1)
+            },
+
+            selectFlavor(st,index){
+                console.log('st',st)
+                console.log('index',index)
+                console.log('this.dishFlavors',this.dishFlavors)
+                const obj = JSON.parse(JSON.stringify(this.dishFlavors[index]))
+                obj.showOption = st
+                this.dishFlavors.splice(index,1,obj)
+                // this.dishFlavors[index].showOption = st
+            },
+
+            outSelect(st,index){
+                const _this = this
+                setTimeout(()=> {
+                    const obj = JSON.parse(JSON.stringify(_this.dishFlavors[index]))
+                    obj.showOption = st
+                    _this.dishFlavors.splice(index,1,obj)
+                }, 200)
+            },
+
+            inputHandle(val,index){
+                // this.selectFlavor(false,index)
+            },
+
+            selectHandle(val, key, ind){
+                const arrDate = [...this.dishFlavors]
+                arrDate[key] = JSON.parse(JSON.stringify(this.dishFlavorsData[ind]))
+                this.dishFlavors = arrDate
+            },
+
+            //参数位置记录
+            flavorPosition (index) {
+                this.index = index
+            },
+
+            // 添加参数标签
+            keyDownHandle (val,index) {
+                console.log('keyDownHandle----val',val)
+                console.log('keyDownHandle----index',index)
+                console.log('keyDownHandle----this.dishFlavors',this.dishFlavors)
+                if (event) {
+                    event.cancelBubble = true
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+
+                if (val.target.innerText.trim() != '') {
+                    this.dishFlavors[index].value.push(val.target.innerText)
+                    val.target.innerText = ''
+                }
+            },
+
+            // 按钮 - 删除参数
+            delFlavor (ind) {
+                this.dishFlavors.splice(ind, 1)
+            },
+
+            submitForm(formName, st) {
+                this.$refs[formName].validate((valid) => {if (valid) {
+                    let params = {...this.ruleForm}
+                        params.status = 2//待审核
+                        params.price =this.ruleForm.price
+                        params.categoryId = this.ruleForm.categoryId
+                        params.flavors = {'name':'售后','value':['无售后','普通售后','特别售后']},
+                        delete params.dishFlavors
+                        if(!this.imageUrl){
+                            this.$message.error('请上传产品图片')
+                            return
+                        }
+                        if (this.actionType == 'add') {
+                            delete params.id
+                            addProduct(params).then(res => {
+                                if (res.code === 1) {
+                                    this.$message.success('产品添加成功！')
+                                    if (!st) {
+                                        this.changed=true
+                                        this.handleClose()
+                                    }
+                                    this.imageUrl = ''
+                                    this.ruleForm = {
+                                            'name': '',
+                                            'id': '',
+                                            'price': '',
+                                            'stock':0,
+                                            'image': '',
+                                            'description': '',
+                                            'dishFlavors': [],
+                                            'status': 2,
+                                            'categoryId': ''
+                                        }
+                                } else {
+                                    this.$message.error(res.msg || '操作失败')
+                                }
+                            }).catch(err => {
+                                this.$message.error('请求出错了：' + err)
+                            })
+                        } else {
+                            delete params.updateTime
+                            editDish(params).then(res => {
+                                if (res.code === 1) {
+                                    this.$message.success('产品修改成功！')
+                                    this.goBack()
+                                } else {
+                                    this.$message.error(res.msg || '操作失败')
+                                }
+                            }).catch(err => {
+                                this.$message.error('请求出错了：' + err)
+                            })
+                        }
+                    } else {
+                        return false
+                    }
+                })
+            },
+
+        }
+    })
+</script>
+<style scoped>
+    .right-aligned-button {
+        float: right;
+        margin-left: auto;
+    }
+</style>
+</html>

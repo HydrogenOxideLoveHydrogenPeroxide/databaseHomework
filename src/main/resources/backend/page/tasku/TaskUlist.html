@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="../../plugins/element-ui/index.css" />
+  <link rel="stylesheet" href="../../styles/common.css" />
+  <link rel="stylesheet" href="../../styles/page.css" />
+</head>
+<body>
+  <div class="dashboard-container" id="category-app">
+    <div class="container">
+      <div
+        class="tableBar"
+        style="display: inline-block"
+      >
+       
+
+      </div>
+      <el-table
+        :data="tableData"
+        stripe
+        class="tableBox"
+      >
+
+        <el-table-column
+          prop="id"
+          label="审核ID"
+        />
+        </el-table-column>
+
+        <el-table-column
+                prop="userid"
+                label="用户ID"
+        />
+        </el-table-column>
+
+        <el-table-column
+                prop="taskName"
+                label="任务名称"
+        />
+        </el-table-column>
+
+
+
+        <el-table-column
+                prop="score"
+                label="悬赏积分"
+        />
+        </el-table-column>
+
+
+        <el-table-column
+          prop="status"
+          label="任务状态"
+        >
+          <template slot-scope="scope">
+            <span>{{getStatus(scope.row.status)}}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column
+          prop="createTime"
+          label="创建时间"
+        >
+        <template slot-scope="scope">
+         {{scope.row.createTime}}
+        </template>
+        </el-table-column>
+
+
+        <el-table-column
+          label="操作"
+          width="160"
+          align="center"
+        >
+          <template slot-scope="scope">
+            <el-button
+              type="text"
+              size="small"
+              class="blueBug"
+              @click="passHandle(scope.row.id)"
+            >
+              通过
+            </el-button>
+            <el-button
+              type="text"
+              size="small"
+              class="delBut non"
+              @click="onpassHandle(scope.row.id)"
+            >
+              未通过
+            </el-button>
+
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-pagination
+        class="pageList"
+        :page-sizes="[10, 20, 30, 40]"
+        :page-size="pageSize"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="counts"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      ></el-pagination>
+    </div>
+
+  </div>
+    <!-- 开发环境版本，包含了有帮助的命令行警告 -->
+    <script src="../../plugins/vue/vue.js"></script>
+    <!-- 引入组件库 -->
+    <script src="../../plugins/element-ui/index.js"></script>
+    <!-- 引入axios -->
+    <script src="../../plugins/axios/axios.min.js"></script>
+    <script src="../../js/request.js"></script>
+    <script src="../../api/tasku.js"></script>
+    <script>
+      new Vue({
+        el: '#category-app',
+        data() {
+          return {
+            action: '',
+            counts: 0,
+            page: 1,
+            pageSize: 10,
+            tableData: [],
+            type :'',
+            classData: {
+              'id': '',
+              'taskName': '',
+              'userid': '',
+              'status':'',
+              'createTime':'',
+              'updateTime':'',
+              'score':''
+            }
+          }
+        },
+        computed: {},
+        created() {
+          this.init()
+        },
+        mounted() {
+        },
+        methods: {
+          async init () {
+            await getTaskUPage({'page': this.page, 'pageSize': this.pageSize}).then(res => {
+              if (String(res.code) === '1') {
+                this.tableData = res.data.records
+                console.log(this.tableData)
+                this.counts = Number(res.data.total)
+              } else {
+                this.$message.error(res.msg || '操作失败')
+              }
+            }).catch(err => {
+              this.$message.error('请求出错了：' + err)
+            })
+          },
+          handleQuery() {
+            this.page = 1;
+            this.init();
+          },
+          getStatus(status){
+            let str = ''
+            switch(status){
+              case 0:
+                str =  '未完成'
+                break;
+              case 1:
+                str =  '未审核'
+                break;
+              case 2:
+                str =  '审核通过'
+                break;
+              case 3:
+                str =  '审核失败'
+                break;
+              case 4:
+                str =  '任务取消'
+                break;
+            }
+            return str
+          },
+           // 添加
+          passHandle(id){
+            passTaske(id).then(res=>{
+              if (res.code === 1) {
+                this.$message.success('通过成功！')
+                this.handleQuery()
+              } else {
+                this.$message.error(res.msg || '操作失败')
+              }
+            }).cache(err =>{
+              this.$message.error('请求出错了：' + err)
+            })
+          },
+
+          onpassHandle(id){
+            this.$confirm('此操作将退回申请, 是否继续?', '提示', {
+              'confirmButtonText': '确定',
+              'cancelButtonText': '取消',
+              'type': 'warning'
+            }).then(()=>{
+              onPassTaske(id).then(res=>{
+                if (res.code === 1) {
+                  this.$message.success('退回成功！')
+                  this.handleQuery()
+                } else {
+                  this.$message.error(res.msg || '操作失败')
+                }
+              }).cache(err =>{
+                this.$message.error('请求出错了：' + err)
+              })
+            })
+
+          },
+
+          deleteHandle(id) {
+            this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+              'confirmButtonText': '确定',
+              'cancelButtonText': '取消',
+              'type': 'warning'
+            }).then(() => {
+              deleTaske(id).then(res => {
+                if (res.code === 1) {
+                  this.$message.success('删除成功！')
+                  this.handleQuery()
+                } else {
+                  this.$message.error(res.msg || '操作失败')
+                }
+              }).catch(err => {
+                this.$message.error('请求出错了：' + err)
+              })
+            })
+          },
+          //数据提交
+          submitForm(st) {
+              const classData = this.classData
+              const valid = (classData.taskName === 0 ||classData.taskName)  && (classData.taskDes === 0 || classData.taskName)&& (classData.endTime === 0 || classData.endTime)&&(classData.score === 0 || classData.score)
+              if (this.action === 'add') {
+                if (valid) {
+                  const reg = /^\d+$/
+
+                    addTask({'taskName': classData.taskName,'taskDes':classData.taskDes, "endTime": classData.endTime,'score':classData.score}).then(res => {
+                      console.log(res)
+                      if (res.code === 1) {
+                        this.$message.success('任务添加成功！')
+                        if (!st) {
+                          this.classData.dialogVisible = false
+                        } else {
+                          this.classData.taskName = ''
+                          this.classData.taskDes = ''
+                          this.classData.status = '0'
+                          this.classData.endTime = ''
+                          this.classData.socre = ''
+
+                        }
+                        this.handleQuery()
+                      } else {
+                        this.$message.error(res.msg || '操作失败')
+                      }
+                    }).catch(err => {
+                      this.$message.error('请求出错了：' + err)
+                    })
+
+                  
+              } else {
+                  this.$message.error('请输入完整信息')
+              }
+            } else if (valid) {
+              const reg = /^\d+$/
+                editTask({'id':classData.id,'taskName': classData.taskName,'taskDes':classData.taskDes,'status':classData.status, "endTime": classData.endTime,'score':classData.score}).then(res => {
+                  if (res.code === 1) {
+                    this.$message.success('分类修改成功！')
+                    this.classData.dialogVisible = false
+                    this.handleQuery()
+                  } else {
+                    this.$message.error(res.msg || '操作失败')
+                  }
+                }).catch(err => {
+                  this.$message.error('请求出错了：' + err)
+                })
+
+            } else {
+              this.$message.error('请输入分类名称或排序')
+            }
+          },
+
+          handleSizeChange (val) {
+            this.pageSize = val
+            this.init()
+          },
+
+          handleCurrentChange (val) {
+            this.page = val
+            this.init()
+          }
+        }
+      })
+    </script>
+</body>
+</html>

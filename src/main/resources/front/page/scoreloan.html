@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <title>积分借贷</title>
+    <link rel="icon" href="./../images/favico.ico">
+    <!--不同屏幕尺寸根字体设置-->
+    <script src="./../js/base.js"></script>
+    <!--element-ui的样式-->
+    <link rel="stylesheet" href="../../backend/plugins/element-ui/index.css" />
+    <!-- 引入样式  -->
+    <link rel="stylesheet" href="../styles/index.css" />
+    <!--引入vant样式-->
+    <link rel="stylesheet" href="../styles/vant.min.css"/>
+    <!--本页面内容的样式-->
+    <link rel="stylesheet" href="./../styles/order.css" />
+    <link rel="stylesheet" href="./../styles/ball.css">
+</head>
+<body>
+<div id="order" class="app">
+    <div class="divHead">
+        <div class="divTitle">
+            <i class="el-icon-arrow-left" @click="goBack"></i>积分借贷历史
+        </div>
+    </div>
+
+    <div class="divBody" v-if="scoreloanList.length > 0">
+        <van-list v-model="loading" :finished="finished" finished-text="没有更多了" @load="getList">
+            <van-cell v-for="(scoreloan, index) in scoreloanList" :key="scoreloan.createTime" class="item">
+                <div class="scoreloanDetails">
+                    <div class="timeStatus">
+                        <span>积分借贷{{ index+1 }}:</span>
+                        <span>{{ getStatus(scoreloan.status) }}</span>
+                    </div>
+                    <div class="scoreDescription">
+                        <span>借贷数额: {{ scoreloan.score }}</span>
+                    </div>
+                    <div class="scoreDescription">
+                        <span>借贷理由: {{ scoreloan.loanReason }}</span>
+                    </div>
+                    <div class="scoreDescription">
+                        <span>申请创建时间: {{ scoreloan.createTime }}</span>
+                    </div>
+                    <div class="scoreDescription">
+                        <span>最近一次变更时间: {{ scoreloan.updateTime }}</span>
+                    </div>
+                    <el-table-column label="操作" width="20" align="center">
+                        <el-button
+                                @click="cancelHandle(scoreloan)"
+                                class="blueBug"
+                                size="small"
+                                type="text"
+                                v-if="scoreloan.status === 0"
+                        >取消</el-button>
+                        <el-button
+                                type="text"
+                                size="small"
+                                class="blueBug"
+                                @click="deleteHandle(scoreloan)"
+                                v-if="scoreloan.status === 2 || scoreloan.status === 3 || scoreloan.status === 1 "
+                        >删除</el-button>
+                    </el-table-column>
+                </div>
+            </van-cell>
+        </van-list>
+    </div>
+    <div class="divNoData" v-else>
+        <div class="divContainer">
+            <img src="./../images/no_order.png"/>
+            <div>暂无积分借贷历史</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <el-dialog
+                :title="classData.title"
+                :visible.sync="classData.dialogVisible"
+                width="80%"
+                :before-close="handleClose"
+        >
+            <el-form class="demo-form-inline" label-width="100px">
+                <el-form-item label="借贷数额：">
+                    <el-input
+                            v-model="classData.score"
+                            placeholder="请输入借贷积分数额"
+                            maxlength="10"
+                            type="number"
+                            min="0"
+                    />
+                </el-form-item>
+                <el-form-item label="借贷事由：">
+                    <el-input type="textarea"
+                              v-model="classData.loanReason"
+                              placeholder="请输入借贷的事由"
+                              maxlength="200"
+                              row="5"
+                    />
+                </el-form-item>
+            </el-form>
+            <span slot="footer" class="dialog-footer">
+                <el-button size="medium" @click="handleClose">取 消</el-button>
+                <el-button type="primary" size="medium" @click="submitForm()">确 定</el-button>
+                <el-button
+                        v-if="action !== 'edit'"
+                        type="primary"
+                        size="medium"
+                        class="continue"
+                        @click="submitForm('go')"
+                > 保存并继续添加 </el-button>
+            </span>
+        </el-dialog>
+    </div>
+
+    <img id="neko" src="./../images/ball.png">
+
+</div>
+</body>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="../../backend/plugins/vue/vue.js"></script>
+<!-- 引入组件库 -->
+<script src="../../backend/plugins/element-ui/index.js"></script>
+<!-- 引入vant组件 -->
+<script src="./../js/vant.min.js"></script>
+<!-- 引入axios -->
+<script src="../../backend/plugins/axios/axios.min.js"></script>
+<script src="./../js/request.js"></script>
+<script src="./../api/scoreloan.js"></script>
+<!--<script src="./../js/ball.js"></script>-->
+<script>
+    new Vue({
+        el: "#order",
+        data() {
+            return {
+                paging: {
+                    page: 1,
+                    pageSize: 7
+                },
+                scoreloanList: [],
+                action: '',
+                counts: '',
+                changed: false,
+                loading: false,
+                finished: false,
+                classData: {
+                    'title': '积分借贷',
+                    'dialogVisible': false,
+                    'id': '',
+                    'userId': '',
+                    'score': '',
+                    'loanReason': '',
+                    'status': '',
+                    'createTime': '',
+                    'updateTime': ''
+                }
+            }
+        },
+        created() {
+            this.initData();
+            var vm=this
+            window.onload = function () {
+                var MoveDom = document.getElementById('neko')
+                //初始位置配置
+                MoveDom.style.transform = 'translateX(50%)'
+                MoveDom.style.left = document.body.scrollWidth - parseFloat(getComputedStyle(MoveDom, null)['width'].split('px')[0]) + 'px'
+                MoveDom.style.top = document.body.scrollWidth / 2 + 'px'
+                // 防抖
+                function debounce(fn, wait) {
+                    var timer = null;
+                    return function () {
+                        if (timer !== null) {
+                            clearTimeout(timer);
+                        }
+                        timer = setTimeout(fn, wait);
+                    }
+                } /**
+                 * [domMove 动态拖拽]
+                 * @method domMove
+                 * @param  {[Element]} MoveDOM [想要动态拖拽Element]
+                 */
+                function domMove(MoveDOM) {
+                    var disX, disY, moveX, moveY, L, T, starX, starY, starXEnd, starYEnd;
+                    var canMove = false;
+                    var canTouch = true;
+
+                    function getDomDistance() {
+                        return {
+                            MoveDomLeft: parseFloat(MoveDOM.style.left.split('px')[0]),
+                            MoveDomRight: document.body.scrollWidth - parseFloat(MoveDOM.style.left.split('px')[0]) - parseFloat(getComputedStyle(MoveDOM, null)['width'].split('px')[0])
+                        }
+
+                    }
+
+                    function rate(MoveDOM, a) {
+                        //  console.log(a);
+                        canTouch = true
+                        if (a === '') {
+                            MoveDOM.style.transition = ''
+                            MoveDOM.style.transform = ''
+                        } else {
+                            MoveDOM.style.transition = '.5s';
+                            if (a == 90) {
+                                debounce(function (a) {
+                                    MoveDOM.style.left = '0px'
+                                    document.getElementById('neko').style.transform = 'translateX(-50%)'// rotate(90deg)
+                                }, 1000)()
+
+                            } else if (a == -90) {
+                                debounce(function (a) {
+                                    MoveDOM.style.left = document.body.scrollWidth - parseFloat(getComputedStyle(MoveDOM, null)['width'].split('px')[0]) + 'px'
+                                    document.getElementById('neko').style.transform = 'translateX(50%)'// rotate(-90deg)
+                                }, 1000)()
+                            }
+                        }
+
+                    }
+
+                    function down(e) {
+                        canMove = true;
+                        //取消动画
+                        rate(MoveDOM, '')
+                        e.preventDefault();//阻止触摸时页面的滚动，缩放
+                        if (e.touches) {
+                            disX = e.touches[0].clientX - MoveDOM.offsetLeft;
+                            disY = e.touches[0].clientY - MoveDOM.offsetTop;
+                            starX = e.touches[0].clientX;
+                            starY = e.touches[0].clientY;
+                            console.log(disX + "+" + disY)
+                            console.log(MoveDOM.offsetLeft + "+" + MoveDOM.offsetTop)
+                        } else {
+                            disX = e.clientX - MoveDOM.offsetLeft;
+                            disY = e.clientY - MoveDOM.offsetTop;
+                            starX = e.clientX;
+                            starY = e.clientY;
+                            console.log(disX + "+" + disY)
+                        }
+
+                    }
+
+                    function move(e) {
+                        if (canMove === true) {
+                            if (e.touches) {
+                                L = e.touches[0].clientX - disX;
+                                T = e.touches[0].clientY - disY;
+                                starXEnd = e.touches[0].clientX - starX;
+                                starYEnd = e.touches[0].clientY - starY;
+                            } else {
+                                L = e.clientX - disX;
+                                T = e.clientY - disY;
+                                starXEnd = e.clientX - starX;
+                                starYEnd = e.clientY - starY;
+                            }
+                            //console.log(L);
+                            if (L < 0) {
+                                L = 0;
+                            } else if (L > document.documentElement.clientWidth - MoveDOM.offsetWidth) {
+                                L = document.documentElement.clientWidth - MoveDOM.offsetWidth;
+                            }
+
+                            if (T < 0) {
+                                T = 0;
+                            } else if (T > document.documentElement.clientHeight - MoveDOM.offsetHeight) {
+                                T = document.documentElement.clientHeight - MoveDOM.offsetHeight;
+                            }
+                            moveX = L + 'px';
+                            moveY = T + 'px';
+                            console.log(moveX);
+                            MoveDOM.style.left = moveX;
+                            MoveDOM.style.top = moveY;
+                        }
+                    }
+
+                    function end() {
+                        let current = (new Date()).valueOf();
+                        if (current - timestamps < 150 && canTouch) {  //200ms内为短按
+                            vm.classData.dialogVisible=true
+                            rate(MoveDOM, 0, 'right')
+                        } else {  //长按
+                            canMove = false
+                            canTouch = false
+                            console.log(canMove)
+                            if (getDomDistance().MoveDomLeft <= 70) {
+                                rate(MoveDOM, 90)
+                            } else if (getDomDistance().MoveDomRight <= 70) {
+                                rate(MoveDOM, -90)
+                            }
+                        }
+
+                    }
+
+                    function start() {
+                        window.timestamps = (new Date()).valueOf();
+                    }
+
+                    MoveDOM.addEventListener('touchstart', function (e) {
+                        //取消动画
+                        rate(MoveDOM, '')
+                        //e.preventDefault();
+                        down(e);
+                        //开始计算点击时间
+                        start()
+                    });
+                    MoveDOM.addEventListener('mousedown', function (e) {
+                        //取消动画
+                        rate(MoveDOM, '')
+                        //e.preventDefault();
+                        down(e);
+                        //开始计算点击时间
+                        start()
+                    });
+                    window.addEventListener('mouseleave', function (e) {
+                        canMove = false//关闭拖拽状态
+                        if (getDomDistance().MoveDomLeft <= 40) {
+                            rate(MoveDOM, 90)
+                        } else if (getDomDistance().MoveDomRight <= 40) {
+                            rate(MoveDOM, -90)
+                        }
+                    })
+                    MoveDOM.addEventListener('mouseleave', function (e) {
+                        canMove = false//关闭拖拽状态
+                        if (getDomDistance().MoveDomLeft <= 40) {
+                            rate(MoveDOM, 90)
+                        } else if (getDomDistance().MoveDomRight <= 40) {
+                            rate(MoveDOM, -90)
+                        }
+
+                    })
+                    MoveDOM.addEventListener('touchmove', function (e) {
+                        move(e);
+                    });
+                    MoveDOM.addEventListener('mousemove', function (e) {
+                        move(e);
+                    });
+                    MoveDOM.addEventListener("mouseup", function (e) {
+                        end()
+                    }, false),
+                        MoveDOM.addEventListener("touchend", function (e) {
+                            end()
+                        }, false)
+                    MoveDOM.addEventListener('transitionend', function () {
+                        canTouch = true
+                    }, false)
+                }
+
+                //执行函数
+                domMove(MoveDom)
+            }
+        },
+        methods: {
+            goBack() {
+                const url = document.referrer;
+                if (url.includes('success')) {
+                    window.requestAnimationFrame(() => {
+                        window.location.href = '/front/index.html';
+                    });
+                } else {
+                    history.go(-1);
+                }
+            },
+            initData() {
+                this.paging.page = 1;
+                this.paging.pageSize = 7;
+                this.scoreloanList = [];
+                this.finished = false;
+                this.getList();
+            },
+            async getList() {
+                if (this.finished) {
+                    this.loading = false;
+                    return;
+                }
+                const res = await ScoreLoanPageApi(this.paging);
+                if (res.code === 1) {
+                    this.scoreloanList.push(...res.data.records);
+                    this.loading = false;
+                    if (this.paging.page >= res.data.pages) {
+                        this.finished = true;
+                    }
+                    this.paging.page += 1;
+                } else {
+                    this.$notify({ type: 'warning', message: res.msg });
+                }
+            },
+            getStatus(status) {
+                const statusMap = {
+                    0: '待审核',
+                    1: '审核通过',
+                    2: '审核未通过',
+                    3: '借贷取消'
+                };
+                return statusMap[status] || '未知状态';
+            },
+            handleClose() {
+                this.classData.dialogVisible = false;
+                if (this.changed) {
+                    this.initData();
+                }
+            },
+            submitForm(continueAdding) {
+                if (!this.classData.score) {
+                    this.$message.error('请输入借贷额度');
+                    return;
+                }
+                addScoreLoan({
+                    'score': this.classData.score,
+                    'loanReason': this.classData.loanReason || '无'
+                }).then(res => {
+                    if (res.code === 1) {
+                        this.$message.success('积分借贷已申请！');
+                        this.changed = true;
+                        if (!continueAdding) {
+                            this.classData.dialogVisible = false;
+                            this.classData={
+                                'title': '积分借贷',
+                                    'dialogVisible': false,
+                                    'id': '',
+                                    'userId': '',
+                                    'score': '',
+                                    'loanReason': '',
+                                    'status': '',
+                                    'createTime': '',
+                                    'updateTime': ''
+                            }
+                        } else {
+                            this.classData.score = '';
+                            this.classData.loanReason = '';
+                        }
+                        this.initData();
+                    } else {
+                        this.$message.error(res.msg || '操作失败');
+                    }
+                }).catch(err => {
+                    this.$message.error('请求出错了：' + err);
+                });
+            },
+            cancelHandle(scoreloan) {
+                cancelHandle(scoreloan.id).then(res => {
+                    if (res.code === 1) {
+                        scoreloan.status = 3;
+                        this.$message.success('取消成功！');
+                    } else {
+                        this.$message.error(res.msg || '操作失败');
+                    }
+                }).catch(err => {
+                    this.$message.error('请求出错了：' + err);
+                });
+            },
+            deleteHandle(scoreloan) {
+                deleteHandle(scoreloan.id).then(res => {
+                    if (res.code === 1) {
+                        this.$message.success('删除成功！');
+                        this.changed = true;
+                        this.initData();
+                    } else {
+                        this.$message.error(res.msg || '操作失败');
+                    }
+                }).catch(err => {
+                    this.$message.error('请求出错了：' + err);
+                });
+            },
+        }
+    });
+</script>
+<style scoped>
+    .right-aligned-button {
+        float: right;
+        margin-left: auto;
+    }
+</style>
+</html>
