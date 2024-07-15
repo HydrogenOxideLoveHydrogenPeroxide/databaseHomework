@@ -15,20 +15,10 @@ function productListApi(data) {
     })
 }
 
-//获取菜品分类对应的套餐
-function setmealListApi(data) {
-    return $axios({
-        'url': '/setmeal/list',
-        'method': 'get',
-        params:{...data}
-    })
-}
-
 //获取购物车内商品的集合
 function cartListApi(data) {
     return $axios({
         'url': '/shoppingCart/list',
-        // 'url': '/front/cartData.json',
         'method': 'get',
         params:{...data}
     })

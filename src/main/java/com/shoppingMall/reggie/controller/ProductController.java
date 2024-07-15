@@ -244,7 +244,7 @@ public class ProductController {
     }
 
     /**
-     * 套餐批量删除和单个删除
+     * 产品批量删除和单个删除
      *
      * @return
      */

@@ -109,7 +109,7 @@
           </div>
           <div class="divCartNum">{{item.number}}</div>
           <div class="divAdd">
-            <img src="./images/add.png" @click="cartNumAdd(item)"/>
+            <img src="./images/add.png" @click="cartNumAdd({ ...item, id: item.productId || item.id })"/>
           </div>
           <div class="divSplit"></div>
         </div>
@@ -279,6 +279,7 @@
           image: item.image,
           stock: item.stock
         };
+        console.log("产品信息",params)
         const res = await addCartApi(params);
         if (res.code === 1) {
           this.productList.forEach(product => {
@@ -322,6 +323,7 @@
           name: item.name,
           image: item.image
         };
+        console.log("参数",params,this.cartData)
         const res = await addCartApi(params);
         if (res.code === 1) {
           this.productList.forEach(product => {
