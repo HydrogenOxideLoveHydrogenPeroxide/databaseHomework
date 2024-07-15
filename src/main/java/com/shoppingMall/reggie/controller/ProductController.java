@@ -8,10 +8,14 @@ import com.shoppingMall.reggie.dto.ProductDto;
 import com.shoppingMall.reggie.entity.Category;
 import com.shoppingMall.reggie.entity.Product;
 import com.shoppingMall.reggie.entity.ProductParam;
+import com.shoppingMall.reggie.entity.User;
 import com.shoppingMall.reggie.mapper.ProductMapper;
+import com.shoppingMall.reggie.mapper.ScoreMapper;
+import com.shoppingMall.reggie.mapper.UserMapper;
 import com.shoppingMall.reggie.service.CategoryService;
 import com.shoppingMall.reggie.service.ProductParamService;
 import com.shoppingMall.reggie.service.ProductService;
+import com.shoppingMall.reggie.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +23,7 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -45,6 +50,14 @@ public class ProductController {
 
     @Autowired
     private ProductParamService productParamService;
+
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private ScoreMapper scoreMapper;
+
     /**
      * 新增产品
      *
@@ -307,8 +320,29 @@ public class ProductController {
      */
     @PostMapping("/subStock")
     public R<String> subStock(long id,int stock) {
+        long productId=id;
+        //条件构造器
+        LambdaQueryWrapper<Product> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Product::getId, productId);
+
+        Product product = productService.getOne(queryWrapper);//找出这个产品
+        log.info("产品信息{}",product);
+
+        //在User表中查找是不是用户提交的
+        LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        userLambdaQueryWrapper.eq(User::getId, product.getCreateUser());
+        User user= userService.getOne(userLambdaQueryWrapper);
+
+        if(user!=null){//这个用户存在,给这个用户增加积分呢
+            float rate=1;//收益率
+            int reward=(int)rate*stock*product.getPrice();
+            userMapper.add(user.getId(), reward);
+            scoreMapper.addScoreHisByid(user.getId(),"上架商品("+product.getName()+")售卖收益",reward,user.getScores()+reward);
+        }
+
         log.info("id={},stock={}",id,stock);
         productMapper.subStock(id,stock);
+
         return R.success("修改产品成功");
     }
 }

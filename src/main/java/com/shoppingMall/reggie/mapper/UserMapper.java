@@ -28,5 +28,5 @@ public interface UserMapper extends BaseMapper<User> {
     int add_score(@Param("score") int score,@Param("userId") Long userId);
 
     @Update("update user set scores=scores + #{amount} where  id=#{userId};")
-    int add(@Param("userId") Long userId,@Param("amount") BigDecimal amount);
+    int add(@Param("userId") Long userId,@Param("amount") long amount);
 }
