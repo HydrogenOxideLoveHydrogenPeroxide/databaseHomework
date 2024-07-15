@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+  <!-- Ensure proper rendering and touch zooming -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
   <title>积分商城</title>
   <link rel="icon" href="images/favico.ico">
-  <!-- 不同屏幕尺寸根字体设置 -->
+  <!-- Root font size setup for different screen sizes -->
   <script src="./js/base.js"></script>
-  <!-- element-ui的样式 -->
+  <!-- Element UI styles -->
   <link rel="stylesheet" href="../backend/plugins/element-ui/index.css" />
-  <!-- 引入vant样式 -->
+  <!-- Vant styles -->
   <link rel="stylesheet" href="styles/vant.min.css"/>
-  <!-- 引入样式 -->
+  <!-- Custom styles -->
   <link rel="stylesheet" href="styles/index.css" />
-  <!-- 本页面内容的样式 -->
+  <!-- Page-specific styles -->
   <link rel="stylesheet" href="styles/main.css" />
 </head>
 <body>
@@ -107,13 +107,12 @@
           <div class="divSubtract">
             <img src="./images/subtract.png" @click="cartNumberSubtract({ ...item, id: item.productId || item.id })"/>
           </div>
-        <div class="divCartNum">{{item.number}}</div>
-<!--          //class="divDishNum"-->
+          <div class="divCartNum">{{item.number}}</div>
           <div class="divAdd">
             <img src="./images/add.png" @click="cartNumAdd(item)"/>
           </div>
-        <div class="divSplit"></div>
-          </div>
+          <div class="divSplit"></div>
+        </div>
       </div>
     </div>
   </van-popup>
@@ -146,13 +145,13 @@
     </div>
   </van-dialog>
 </div>
-<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<!-- Development version with helpful console warnings -->
 <script src="../backend/plugins/vue/vue.js"></script>
-<!-- 引入组件库 -->
+<!-- Importing the component library -->
 <script src="../backend/plugins/element-ui/index.js"></script>
-<!-- 引入vant样式 -->
+<!-- Importing Vant styles -->
 <script src="./js/vant.min.js"></script>
-<!-- 引入axios -->
+<!-- Importing Axios -->
 <script src="../backend/plugins/axios/axios.min.js"></script>
 <script src="./js/request.js"></script>
 <script src="./js/common.js"></script>
@@ -162,7 +161,7 @@
     el: '#main',
     data() {
       return {
-        //左边菜品类别index
+        // Active category index
         activeType: 0,
         categoryList: [],
         categoryId: undefined,
@@ -205,22 +204,20 @@
       this.initData();
     },
     methods: {
-      //初始化数据
+      // Initialize data
       initData() {
         Promise.all([categoryListApi(), cartListApi({})]).then(res => {
-          //获取分类数据
+          // Fetch category data
           if (res[0].code === 1) {
             this.categoryList = res[0].data;
             if (Array.isArray(res[0].data) && res[0].data.length > 0) {
               this.categoryId = res[0].data[0].id;
-              if (res[0].data[0].type === 1) {
-                this.getProductList();
-              }
+              this.getProductList();
             }
           } else {
             this.$notify({ type: 'warning', message: res[0].msg });
           }
-          //获取菜品数据
+          // Fetch cart data
           if (res[1].code === 1) {
             this.cartData = res[1].data;
           } else {
@@ -228,14 +225,14 @@
           }
         });
       },
-      //分类点击
+      // Category click handler
       categoryClick(index, id) {
         this.activeType = index;
         this.categoryId = id;
-        //菜品
+        // Fetch products
         this.getProductList();
       },
-      //获取菜品数据
+      // Fetch product list
       async getProductList() {
         if (!this.categoryId) {
           return;
@@ -258,27 +255,26 @@
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //获取购物车数据
+      // Fetch cart data
       async getCartData() {
         const res = await cartListApi({});
         if (res.code === 1) {
           this.cartData = res.data;
-          console.log("购物车数据",this.cartData)
+          console.log("购物车数据", this.cartData);
         } else {
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //菜单中往购物车中添加商品
+      // Add product to cart
       async addCart(item) {
-        // 检查库存是否足够
+        // Check stock
         if (item.stock <= item.number) {
           this.$notify({ type: 'warning', message: '库存不足，无法添加更多该商品。' });
           return;
         }
-
         let params = {
-          amount: item.price, //金额
-          productId: item.id, //商品id
+          amount: item.price, // Amount
+          productId: item.id, // Product ID
           name: item.name,
           image: item.image,
           stock: item.stock
@@ -295,7 +291,7 @@
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //菜单中减少选中的商品
+      // Remove product from cart
       async subtractCart(item) {
         let params = {
           productId: item.id
@@ -312,17 +308,17 @@
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //展开购物车
+      // Open cart
       openCart() {
         if (this.cartData.length > 0) {
           this.cartDialogShow = true;
         }
       },
-      //购物车中增加商品数量
+      // Increase product quantity in cart
       async cartNumAdd(item) {
         let params = {
-          amount: item.amount, //金额
-          productId: item.id, //产品id
+          amount: item.amount, // Amount
+          productId: item.id, // Product ID
           name: item.name,
           image: item.image
         };
@@ -338,9 +334,8 @@
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //购物车中减少商品数量
+      // Decrease product quantity in cart
       async cartNumberSubtract(item) {
-        // console.log("item数据",item)
         let params = {
           productId: item.id
         };
@@ -356,32 +351,24 @@
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //修改商品列表中的数据number
-      changeProductList(item) {
-        for (let ele of this.productList) {
-          if (ele.id === item.id) {
-            ele.number = item.number;
-          }
-        }
-      },
-      //清空购物车
+      // Clear cart
       async clearCart() {
         const res = await clearCartApi();
         if (res.code === 1) {
-          for (let ele of this.productList) {
-            ele.number = undefined;
-          }
+          this.productList.forEach(product => {
+            product.number = undefined;
+          });
           this.cartData = [];
           this.cartDialogShow = false;
         } else {
           this.$notify({ type: 'warning', message: res.msg });
         }
       },
-      //网络图片路径转换
+      // Convert image path
       imgPathConvert(path) {
         return imgPath(path);
       },
-      //跳转到去结算界面
+      // Navigate to order page
       toAddOrderPage() {
         if (this.cartData.length > 0) {
           window.requestAnimationFrame(() => {
@@ -389,11 +376,13 @@
           });
         }
       },
+      // Navigate to user page
       toUserPage() {
         window.requestAnimationFrame(() => {
           window.location.href = '/front/page/user.html';
         });
       },
+      // Show product details
       async ProductDetails(item) {
         this.detailsDialog.item = {};
         this.detailsDialog.item = item;
@@ -402,5 +391,6 @@
     }
   });
 </script>
+
 </body>
 </html>
